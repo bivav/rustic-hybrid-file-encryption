@@ -1,10 +1,5 @@
-# rustic-hybrid-file-encryption
-A Hybrid File Encryption project using AES, RSA and SHA Hashing 
-___
-
-**Warning: This project is still in development and is not yet ready for use.**
-
 ### File Encryption and Decryption using AES and Hash Function Utility (SHA256)
+___
 
 ### File Encrypt Decrypt AES
 
