@@ -14,8 +14,8 @@ Cargo.lock
 *.pdb
 .idea/*
 
-*/file.txt
-*/key.txt
-*/decrypted.txt
-*/encrypted.txt
-*/keys
+file.txt
+key.txt
+decrypted.txt
+encrypted.txt
+keys/
