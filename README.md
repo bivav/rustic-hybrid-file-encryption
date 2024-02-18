@@ -1,4 +1,4 @@
-### File Encryption and Decryption using AES and Hash Function Utility (SHA256)
+### File Encryption and Decryption using AES, RSA and Hash Function Utility (SHA256)
 
 ___
 
@@ -8,7 +8,7 @@ of sensitive data. It is still a work in progress and should not be used for any
 ### File Encrypt Decrypt AES
 
 This is a Rust project that provides functionality for file encryption and decryption using AES (Advanced Encryption
-Standard) with a 256-bit key.
+Standard) with a 256-bit key and RSA (Rivest–Shamir–Adleman) with a 2048-bit key. It also uses a hash function (SHA256).
 
 ### Usage
 
