@@ -1,17 +1,30 @@
+use std::{env, fs};
 use std::fs::File;
 use std::io::{stdin, Write};
-use std::{env, fs};
 
 use anyhow::{anyhow, Context, Result};
+use rsa::{RsaPrivateKey, RsaPublicKey};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey, LineEnding};
 use rsa::rand_core::OsRng;
-use rsa::{RsaPrivateKey, RsaPublicKey};
 
 use file_encrypt_decrypt_aes::{Config, FileEncryptDecrypt};
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let config: Config = Config::build(&args)?;
+
+
+    // Ask for user input if they want to encrypt using RSA or AES (password) or both (hybrid)
+    let mut input = String::new();
+    println!("What do you want to use for encryption?");
+    println!("1. RSA (Public Key)");
+    println!("2. AES (Password using KDF - PBKDF2)");
+    println!("3. Hybrid (RSA + AES)");
+    stdin().read_line(&mut input).context("Input valid option")?;
+    let input = input.trim().parse::<u32>().context("Input valid option")?;
+
+    println!("You chose: {}", input);
+
 
     let mut rng = OsRng;
     let bits = 2048;
