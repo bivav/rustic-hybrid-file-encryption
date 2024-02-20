@@ -1,5 +1,4 @@
 use std::cmp::min;
-
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -8,11 +7,11 @@ use std::process::exit;
 
 use anyhow::{anyhow, bail, Result};
 use base64::Engine;
+use ring::{aead, digest, pbkdf2};
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey};
 use ring::rand::{SecureRandom, SystemRandom};
-use ring::{aead, digest, pbkdf2};
-use rsa::rand_core::OsRng;
 use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
+use rsa::rand_core::OsRng;
 
 pub struct Configs {
     pub command: String,
@@ -20,6 +19,10 @@ pub struct Configs {
 }
 
 impl Configs {
+    pub fn from_matches(matches: &clap::ArgMatches) -> Self {
+        let file_path = matches.get_one::<String>("file").unwrap().to_string();
+        Self { command: "command".to_string(), file_path }
+    }
     pub fn build(args: &[String]) -> Result<Self> {
         if args.len() < 3 {
             bail!("Not enough arguments!");
