@@ -7,11 +7,11 @@ use rsa::{RsaPrivateKey, RsaPublicKey};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey, LineEnding};
 use rsa::rand_core::OsRng;
 
-use hybrid_file_encryption_cli::{Config, FileEncryptDecrypt};
+use hybrid_file_encryption_lib::{Configs, FileEncryptDecrypt};
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
-    let config: Config = Config::build(&args)?;
+    let config: Configs = Configs::build(&args)?;
 
 
     // Ask for user input if they want to encrypt using RSA or AES (password) or both (hybrid)
@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     println!("Keys generated and saved in 'keys' directory");
 
     if config.command == "encrypt" {
-        let mut file_content_buffer = Config::read_file(config)?;
+        let mut file_content_buffer = Configs::read_file(config)?;
 
         // Hash value before encryption
         let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
@@ -87,7 +87,7 @@ fn main() -> Result<()> {
         let after_encrypt_hash = FileEncryptDecrypt::get_hash(encrypted_data.as_slice());
         println!("Hash after encryption: {:?}", hex::encode(&after_encrypt_hash));
 
-        let saved = Config::save_as_base64_encoded_file(encrypted_data, "encrypted.txt")?;
+        let saved = Configs::save_as_base64_encoded_file(encrypted_data, "encrypted.txt")?;
         if saved {
             println!("File encrypted as encrypted.txt");
         }
@@ -99,7 +99,7 @@ fn main() -> Result<()> {
             return Err(anyhow!("Invalid Password!"));
         }
 
-        let mut file_content_as_buffer = Config::read_file_base64(config)?;
+        let mut file_content_as_buffer = Configs::read_file_base64(config)?;
         let before_decryption_hash = FileEncryptDecrypt::get_hash(file_content_as_buffer.as_slice());
         let decrypted_text =
             FileEncryptDecrypt::decrypt(&mut file_content_as_buffer, password.trim().as_bytes())?;
@@ -109,7 +109,7 @@ fn main() -> Result<()> {
             FileEncryptDecrypt::verify_hash(file_content_as_buffer.as_slice(), decrypted_text.as_bytes());
         if verify {
             println!("Hashes match!");
-            let saved = Config::save_file(decrypted_text, "decrypted.txt")?;
+            let saved = Configs::save_file(decrypted_text, "decrypted.txt")?;
             if saved {
                 println!("File decrypted as decrypted.txt");
             } else {
