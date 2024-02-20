@@ -7,7 +7,7 @@ use rsa::{RsaPrivateKey, RsaPublicKey};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey, LineEnding};
 use rsa::rand_core::OsRng;
 
-use file_encrypt_decrypt_aes::{Config, FileEncryptDecrypt};
+use hybrid_file_encryption_cli::{Config, FileEncryptDecrypt};
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();

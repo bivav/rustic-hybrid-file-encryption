@@ -19,3 +19,7 @@ key.txt
 decrypted.txt
 encrypted.txt
 keys/
+
+*/encrypted.txt
+*/decrypted.txt
+*/keys/
