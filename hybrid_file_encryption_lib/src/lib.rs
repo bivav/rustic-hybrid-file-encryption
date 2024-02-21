@@ -1,3 +1,8 @@
+mod rsa_impl;
+mod aes_impl;
+
+pub use rsa_impl::*;
+
 use std::cmp::min;
 use std::fs;
 use std::fs::File;
@@ -7,11 +12,11 @@ use std::process::exit;
 
 use anyhow::{anyhow, bail, Result};
 use base64::Engine;
-use ring::{aead, digest, pbkdf2};
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey};
 use ring::rand::{SecureRandom, SystemRandom};
-use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
+use ring::{aead, digest, pbkdf2};
 use rsa::rand_core::OsRng;
+use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
 
 pub struct Configs {
     pub command: String,
@@ -21,7 +26,10 @@ pub struct Configs {
 impl Configs {
     pub fn from_matches(matches: &clap::ArgMatches) -> Self {
         let file_path = matches.get_one::<String>("file").unwrap().to_string();
-        Self { command: "command".to_string(), file_path }
+        Self {
+            command: "command".to_string(),
+            file_path,
+        }
     }
     pub fn build(args: &[String]) -> Result<Self> {
         if args.len() < 3 {
@@ -47,7 +55,10 @@ impl Configs {
         let decoded_data = base64::engine::general_purpose::STANDARD
             .decode(&file_content)
             .unwrap_or_else(|e| {
-                println!("Decoding Error: {:?}\nAre you sure it's the encrypted file?", e);
+                println!(
+                    "Decoding Error: {:?}\nAre you sure it's the encrypted file?",
+                    e
+                );
                 exit(1);
             });
 
@@ -123,7 +134,8 @@ impl FileEncryptDecrypt {
             &encryption_key[..min(encryption_key.len(), 4)]
         );
 
-        let encrypt_symmetric_key = public_key.encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)?;
+        let encrypt_symmetric_key =
+            public_key.encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)?;
 
         let unbound_key = UnboundKey::new(&aead::AES_256_GCM, &encryption_key)
             .map_err(|e| anyhow!("Failed to create unbound key {}", e))?;
@@ -140,7 +152,10 @@ impl FileEncryptDecrypt {
     }
 
     pub fn decrypt(file_content: &mut Vec<u8>, key: &[u8]) -> Result<String> {
-        println!("File content length before decrypting: {}", file_content.len());
+        println!(
+            "File content length before decrypting: {}",
+            file_content.len()
+        );
 
         let salt = &file_content[32..64];
         let iv = &file_content[64..76];

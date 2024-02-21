@@ -1,14 +1,9 @@
-use std::fs;
-use std::fs::File;
-use std::io::{stdin, Write};
+use std::io::stdin;
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Arg, Command};
-use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey, LineEnding};
-use rsa::rand_core::OsRng;
-use rsa::{RsaPrivateKey, RsaPublicKey};
 
-use hybrid_file_encryption_lib::{Configs, FileEncryptDecrypt};
+use hybrid_file_encryption_lib::{Configs, FileEncryptDecrypt, rsa_implementation};
 
 const APP_NAME: &str = "Hybrid File Encryption";
 const VERSION: &str = "0.1.0";
@@ -41,42 +36,34 @@ fn main() -> Result<()> {
         .arg_required_else_help(true)
         .get_matches();
 
-    // let args: Vec<String> = env::args().collect();
-    // let config: Configs = Configs::build(&args)?;
-
     // Ask for user input if they want to encrypt using RSA or AES (password) or both (hybrid)
     let mut input = String::new();
     println!("What do you want to use for encryption?");
     println!("1. RSA (Public Key)");
     println!("2. AES (Password using KDF - PBKDF2)");
     println!("3. Hybrid (RSA + AES)");
-    stdin()
-        .read_line(&mut input)
-        .context("Input valid option")?;
+    stdin().read_line(&mut input).context("Input valid option")?;
     let input = input.trim().parse::<u32>().context("Input valid option")?;
 
     println!("You chose: {}", input);
 
-    let mut rng = OsRng;
-    let bits = 2048;
-
-    let private_key: RsaPrivateKey = RsaPrivateKey::new(&mut rng, bits)?;
-    let public_key = RsaPublicKey::from(&private_key);
-
-    let private_key_pem = private_key.to_pkcs1_pem(LineEnding::LF)?;
-    let public_key_pem = public_key.to_pkcs1_pem(LineEnding::default())?;
-
-    // println!("Private Key: {:?}", private_key_pem.to_string());
-    // println!("Public Key: {:?}", public_key_pem.to_string());
-
-    fs::create_dir_all("keys").context("Couldn't create directory: ")?;
-
-    let mut private_file = File::create("keys/private_key.pem")?;
-    private_file.write_all(&private_key_pem.as_bytes())?;
-    let mut public_file = File::create("keys/public_key.pem")?;
-    public_file.write_all(&public_key_pem.as_bytes())?;
-
-    println!("Keys generated and saved in 'keys' directory");
+    match input {
+        1 => {
+            // Generate RSA keys
+            unimplemented!("RSA encryption not implemented yet")
+            // rsa_implementation()?
+        }
+        2 => {
+            // Encrypt using AES
+        }
+        3 => {
+            // Encrypt using RSA and AES
+            unimplemented!("Hybrid encryption not implemented yet")
+        }
+        _ => {
+            return Err(anyhow!("Invalid option"));
+        }
+    }
 
     match matches.subcommand() {
         Some(("encrypt", sub_matches)) => {
@@ -87,16 +74,11 @@ fn main() -> Result<()> {
 
             // Hash value before encryption
             let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
-            println!(
-                "Hash before encryption: {:?}",
-                hex::encode(&before_encrypt_hash)
-            );
+            println!("Hash before encryption: {:?}", hex::encode(&before_encrypt_hash));
 
             println!("Enter a password to encrypt the file:");
             let mut password = String::new();
-            stdin()
-                .read_line(&mut password)
-                .context("Input valid password")?;
+            stdin().read_line(&mut password).context("Input valid password")?;
             let password = password.trim().to_string();
 
             let (iv, cipher_text, salt, encrypted_symmetric_key) =
@@ -122,16 +104,10 @@ fn main() -> Result<()> {
             encrypted_data.extend_from_slice(&salt);
             encrypted_data.extend_from_slice(&iv);
             encrypted_data.extend_from_slice(&cipher_text);
-            println!(
-                "File content length after encrypting: {}",
-                encrypted_data.len()
-            );
+            println!("File content length after encrypting: {}", encrypted_data.len());
 
             let after_encrypt_hash = FileEncryptDecrypt::get_hash(encrypted_data.as_slice());
-            println!(
-                "Hash after encryption: {:?}",
-                hex::encode(&after_encrypt_hash)
-            );
+            println!("Hash after encryption: {:?}", hex::encode(&after_encrypt_hash));
 
             let saved = Configs::save_as_base64_encoded_file(encrypted_data, "encrypted.txt")?;
             if saved {
@@ -150,18 +126,13 @@ fn main() -> Result<()> {
             }
 
             let mut file_content_as_buffer = Configs::read_file_base64(config)?;
-            let before_decryption_hash =
-                FileEncryptDecrypt::get_hash(file_content_as_buffer.as_slice());
-            let decrypted_text = FileEncryptDecrypt::decrypt(
-                &mut file_content_as_buffer,
-                password.trim().as_bytes(),
-            )?;
+            let before_decryption_hash = FileEncryptDecrypt::get_hash(file_content_as_buffer.as_slice());
+            let decrypted_text =
+                FileEncryptDecrypt::decrypt(&mut file_content_as_buffer, password.trim().as_bytes())?;
             println!("Encrypted Hash: {:?}", hex::encode(before_decryption_hash));
 
-            let verify = FileEncryptDecrypt::verify_hash(
-                file_content_as_buffer.as_slice(),
-                decrypted_text.as_bytes(),
-            );
+            let verify =
+                FileEncryptDecrypt::verify_hash(file_content_as_buffer.as_slice(), decrypted_text.as_bytes());
             if verify {
                 println!("Hashes match!");
                 let saved = Configs::save_file(decrypted_text, "decrypted.txt")?;
