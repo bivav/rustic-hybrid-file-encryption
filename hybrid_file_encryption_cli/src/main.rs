@@ -1,6 +1,6 @@
+use std::fs;
 use std::fs::File;
 use std::io::{stdin, Write};
-use std::{env, fs};
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Arg, Command};
@@ -41,8 +41,8 @@ fn main() -> Result<()> {
         .arg_required_else_help(true)
         .get_matches();
 
-    let args: Vec<String> = env::args().collect();
-    let config: Configs = Configs::build(&args)?;
+    // let args: Vec<String> = env::args().collect();
+    // let config: Configs = Configs::build(&args)?;
 
     // Ask for user input if they want to encrypt using RSA or AES (password) or both (hybrid)
     let mut input = String::new();
@@ -50,7 +50,9 @@ fn main() -> Result<()> {
     println!("1. RSA (Public Key)");
     println!("2. AES (Password using KDF - PBKDF2)");
     println!("3. Hybrid (RSA + AES)");
-    stdin().read_line(&mut input).context("Input valid option")?;
+    stdin()
+        .read_line(&mut input)
+        .context("Input valid option")?;
     let input = input.trim().parse::<u32>().context("Input valid option")?;
 
     println!("You chose: {}", input);
@@ -85,11 +87,16 @@ fn main() -> Result<()> {
 
             // Hash value before encryption
             let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
-            println!("Hash before encryption: {:?}", hex::encode(&before_encrypt_hash));
+            println!(
+                "Hash before encryption: {:?}",
+                hex::encode(&before_encrypt_hash)
+            );
 
             println!("Enter a password to encrypt the file:");
             let mut password = String::new();
-            stdin().read_line(&mut password).context("Input valid password")?;
+            stdin()
+                .read_line(&mut password)
+                .context("Input valid password")?;
             let password = password.trim().to_string();
 
             let (iv, cipher_text, salt, encrypted_symmetric_key) =
@@ -115,10 +122,16 @@ fn main() -> Result<()> {
             encrypted_data.extend_from_slice(&salt);
             encrypted_data.extend_from_slice(&iv);
             encrypted_data.extend_from_slice(&cipher_text);
-            println!("File content length after encrypting: {}", encrypted_data.len());
+            println!(
+                "File content length after encrypting: {}",
+                encrypted_data.len()
+            );
 
             let after_encrypt_hash = FileEncryptDecrypt::get_hash(encrypted_data.as_slice());
-            println!("Hash after encryption: {:?}", hex::encode(&after_encrypt_hash));
+            println!(
+                "Hash after encryption: {:?}",
+                hex::encode(&after_encrypt_hash)
+            );
 
             let saved = Configs::save_as_base64_encoded_file(encrypted_data, "encrypted.txt")?;
             if saved {
@@ -137,13 +150,18 @@ fn main() -> Result<()> {
             }
 
             let mut file_content_as_buffer = Configs::read_file_base64(config)?;
-            let before_decryption_hash = FileEncryptDecrypt::get_hash(file_content_as_buffer.as_slice());
-            let decrypted_text =
-                FileEncryptDecrypt::decrypt(&mut file_content_as_buffer, password.trim().as_bytes())?;
+            let before_decryption_hash =
+                FileEncryptDecrypt::get_hash(file_content_as_buffer.as_slice());
+            let decrypted_text = FileEncryptDecrypt::decrypt(
+                &mut file_content_as_buffer,
+                password.trim().as_bytes(),
+            )?;
             println!("Encrypted Hash: {:?}", hex::encode(before_decryption_hash));
 
-            let verify =
-                FileEncryptDecrypt::verify_hash(file_content_as_buffer.as_slice(), decrypted_text.as_bytes());
+            let verify = FileEncryptDecrypt::verify_hash(
+                file_content_as_buffer.as_slice(),
+                decrypted_text.as_bytes(),
+            );
             if verify {
                 println!("Hashes match!");
                 let saved = Configs::save_file(decrypted_text, "decrypted.txt")?;
