@@ -3,7 +3,7 @@ use std::io::stdin;
 use anyhow::{anyhow, Context, Result};
 use clap::{Arg, Command};
 
-use hybrid_file_encryption_lib::{aes_implementation, FileEncryptDecrypt, FileIoOperation};
+use hybrid_file_encryption_lib::{aes_decryption, aes_encryption, FileIoOperation};
 
 const APP_NAME: &str = "Hybrid File Encryption";
 const VERSION: &str = "0.1.0";
@@ -58,7 +58,7 @@ fn main() -> Result<()> {
         }
         3 => {
             // Encrypt using RSA and AES
-            unimplemented!("Hybrid encryption not implemented yet")
+            // unimplemented!("Hybrid encryption not implemented yet")
         }
         _ => {
             return Err(anyhow!("Invalid option"));
@@ -76,7 +76,7 @@ fn main() -> Result<()> {
             stdin().read_line(&mut password).context("Input valid password")?;
             let password = password.trim().to_string();
 
-            aes_implementation(password, &mut file_content_buffer).context("AES encryption failed")?;
+            aes_encryption(password, &mut file_content_buffer).context("AES encryption failed")?;
 
             // // Hash value before encryption
             // let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
@@ -127,24 +127,28 @@ fn main() -> Result<()> {
             }
 
             let mut file_content_as_buffer = FileIoOperation::read_file_base64(config)?;
-            let before_decryption_hash = FileEncryptDecrypt::get_hash(file_content_as_buffer.as_slice());
-            let decrypted_text =
-                FileEncryptDecrypt::decrypt(&mut file_content_as_buffer, password.trim().as_bytes())?;
-            println!("Encrypted Hash: {:?}", hex::encode(before_decryption_hash));
 
-            let verify =
-                FileEncryptDecrypt::verify_hash(file_content_as_buffer.as_slice(), decrypted_text.as_bytes());
-            if verify {
-                println!("Hashes match!");
-                let saved = FileIoOperation::save_file(decrypted_text, "decrypted.txt")?;
-                if saved {
-                    println!("File decrypted as decrypted.txt");
-                } else {
-                    println!("Error saving file");
-                }
-            } else {
-                println!("Hashes don't match! File is corrupted!");
-            }
+            aes_decryption(&mut file_content_as_buffer, password).context("AES decryption failed")?;
+
+            //
+            // let before_decryption_hash = FileEncryptDecrypt::get_hash(file_content_as_buffer.as_slice());
+            // let decrypted_text =
+            //     FileEncryptDecrypt::decrypt(&mut file_content_as_buffer, password.trim().as_bytes())?;
+            // println!("Encrypted Hash: {:?}", hex::encode(before_decryption_hash));
+            //
+            // let verify =
+            //     FileEncryptDecrypt::verify_hash(file_content_as_buffer.as_slice(), decrypted_text.as_bytes());
+            // if verify {
+            //     println!("Hashes match!");
+            //     let saved = FileIoOperation::save_file(decrypted_text, "decrypted.txt")?;
+            //     if saved {
+            //         println!("File decrypted as decrypted.txt");
+            //     } else {
+            //         println!("Error saving file");
+            //     }
+            // } else {
+            //     println!("Hashes don't match! File is corrupted!");
+            // }
         }
         _ => unreachable!("Invalid subcommand"),
     }

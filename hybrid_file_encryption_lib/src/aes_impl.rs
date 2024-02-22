@@ -9,7 +9,7 @@ pub struct EncryptDecryptResult<'a> {
     pub(crate) encrypted_symmetric_key: Option<Vec<u8>>,
 }
 
-pub fn aes_implementation(password: String, file_content_buffer: &mut Vec<u8>) -> Result<()> {
+pub fn aes_encryption(password: String, file_content_buffer: &mut Vec<u8>) -> Result<()> {
     // Hash value before encryption
     let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
     println!("Hash before encryption: {:?}", hex::encode(&before_encrypt_hash));
@@ -19,19 +19,21 @@ pub fn aes_implementation(password: String, file_content_buffer: &mut Vec<u8>) -
 
     let mut encrypted_data = Vec::new();
 
-    // prepend length of all data
+    // Length of all data as bytes
     let symmetric_key_len_bytes = (encrypted_symmetric_key.len() as u32).to_be_bytes();
     let hash_len_bytes = (before_encrypt_hash.len() as u32).to_be_bytes();
     let salt_len_bytes = (result.salt.len() as u32).to_be_bytes();
     let iv_len_bytes = (result.iv.len() as u32).to_be_bytes();
 
-    // len of data - total 16 bytes
+    // Prepend len of each data for better extraction = total 16 bytes
+    // Extract these lengths in 'ORDER' during decryption which then can be used as indexes to extract the data
+    // 4 bytes of symmetric key, 4 bytes of hash, 4 bytes of salt, 4 bytes of iv
     encrypted_data.extend_from_slice(&symmetric_key_len_bytes); // 4 bytes of symmetric key
     encrypted_data.extend_from_slice(&hash_len_bytes); // 4 bytes of hash
     encrypted_data.extend_from_slice(&salt_len_bytes); // 4 bytes of salt
     encrypted_data.extend_from_slice(&iv_len_bytes); // 4 bytes of iv
 
-    // prepend all data
+    // Concatenate the data in the same order that was used to create the lengths above
     encrypted_data.extend_from_slice(&encrypted_symmetric_key);
     encrypted_data.extend_from_slice(&before_encrypt_hash);
     encrypted_data.extend_from_slice(&result.salt);
@@ -45,6 +47,19 @@ pub fn aes_implementation(password: String, file_content_buffer: &mut Vec<u8>) -
     if let Ok(_) = FileIoOperation::save_as_base64_encoded_file(encrypted_data, "encrypted.txt") {
         println!("File encrypted and saved as encrypted.txt");
     }
+
+    Ok(())
+}
+
+pub fn aes_decryption(file_content_buffer: &mut Vec<u8>, password: String) -> Result<()> {
+    // Hash value before decryption. 
+    // It should match with the hash value after encryption of the file
+    let before_decryption_hash = FileEncryptDecrypt::get_hash(&file_content_buffer);
+    println!("Encrypted Hash: {:?}", hex::encode(before_decryption_hash));
+
+    let decrypted_text = FileEncryptDecrypt::decrypt(file_content_buffer, password.trim().as_bytes())?;
+
+    println!("Decrypted text: {:?}", &decrypted_text);
 
     Ok(())
 }
