@@ -87,13 +87,13 @@ impl FileEncryptDecrypt {
     }
 
     pub fn verify_hash(
-        encrypted_file_content: &[u8],
-        decrypted_file_content: &[u8],
+        encrypted_content: &[u8],
+        decrypted_content: &[u8],
         hash_start: usize,
         hash_len: usize,
     ) -> Result<bool> {
-        let decrypted_hash = FileEncryptDecrypt::get_hash(decrypted_file_content);
-        let encrypted_hash = &encrypted_file_content[hash_start..hash_start + hash_len];
+        let decrypted_hash = FileEncryptDecrypt::get_hash(decrypted_content);
+        let encrypted_hash = &encrypted_content[hash_start..hash_start + hash_len];
         println!("Decrypted hash: {:?}", hex::encode(&decrypted_hash));
         println!("Expected hash: {:?}", hex::encode(&encrypted_hash));
         Ok(decrypted_hash == encrypted_hash)
@@ -104,9 +104,12 @@ impl FileEncryptDecrypt {
         password: String,
         public_key: Option<&'a RsaPublicKey>,
     ) -> Result<EncryptDecryptResult<'a>> {
+        
+        // Used for encryption using public key
         let mut os_rng = OsRng;
 
-        let rng = SystemRandom::new(); // Random Number Generator
+        // Used for generating random values for AES encryption
+        let rng = SystemRandom::new();
 
         // let mut encryption_key = [0u8; 32]; // Creating list of 256 bits of 0s (Encryption Key)
         // rng.fill(&mut encryption_key).unwrap(); // Generating Encryption key
@@ -163,28 +166,25 @@ impl FileEncryptDecrypt {
         })
     }
 
-    pub fn decrypt(file_content: &mut Vec<u8>, key: &[u8]) -> Result<String> {
+    pub fn decrypt(file_content: &mut Vec<u8>, user_password: &[u8]) -> Result<String> {
         println!("File content length before decrypting: {}", file_content.len());
 
         // First 4 bytes of symmetric key, then 4 bytes of hash, then 4 bytes of salt, then 4 bytes of iv then the cipher text
-        let symmetric_key_len = u32::from_be_bytes(file_content[..4].try_into()?);
-        let hash_len = u32::from_be_bytes(file_content[4..8].try_into()?);
-        let salt_len = u32::from_be_bytes(file_content[8..12].try_into()?);
-        let iv_len = u32::from_be_bytes(file_content[12..16].try_into()?);
+        let symmetric_key_len = u32::from_be_bytes(file_content[..4].try_into()?) as usize;
+        let hash_len = u32::from_be_bytes(file_content[4..8].try_into()?) as usize;
+        let salt_len = u32::from_be_bytes(file_content[8..12].try_into()?) as usize;
+        let iv_len = u32::from_be_bytes(file_content[12..16].try_into()?) as usize;
 
         let symmetric_key_start = 16;
-        let hash_start = symmetric_key_start + symmetric_key_len as usize;
-        let salt_start = hash_start + hash_len as usize;
-        let iv_start = salt_start + salt_len as usize;
-        let cipher_text_start = iv_start + iv_len as usize;
+        let hash_start = symmetric_key_start + symmetric_key_len;
+        let salt_start = hash_start + hash_len;
+        let iv_start = salt_start + salt_len;
+        let cipher_text_start = iv_start + iv_len;
 
         let salt = &file_content[salt_start..iv_start];
         let iv = &file_content[iv_start..cipher_text_start];
 
         let mut cipher_data = &mut file_content[cipher_text_start..].to_vec();
-
-        // let salt = &file_content[32..64];
-        // let iv = &file_content[64..76];
 
         println!("Extracted Salt snippet: {:?}", &salt[..6]);
         println!("Extracted IV snipped: {:?}", &iv);
@@ -197,7 +197,7 @@ impl FileEncryptDecrypt {
             pbkdf2::PBKDF2_HMAC_SHA256,
             non_zero_iterations,
             &salt,
-            &key,
+            &user_password,
             &mut encryption_key,
         );
 
@@ -213,8 +213,8 @@ impl FileEncryptDecrypt {
 
         let aead_key = LessSafeKey::new(unbound_key);
 
-        // println!("Data to decrypt length: {}", &cipher_data.len());
-        // println!("Data to decrypt snippet: {:?}", &cipher_data);
+        println!("Data to decrypt length: {}", &cipher_data.len());
+        println!("Data to decrypt snippet: {:?}", &cipher_data);
 
         let decrypted_data = aead_key
             .open_in_place(nonce, Aad::empty(), &mut cipher_data)
@@ -224,7 +224,7 @@ impl FileEncryptDecrypt {
             .map_err(|e| anyhow!("UTF-8 conversion failed: {:?}", e))?;
 
         if let Ok(verify) =
-            FileEncryptDecrypt::verify_hash(&file_content, result.as_bytes(), hash_start, hash_len as usize)
+            FileEncryptDecrypt::verify_hash(&file_content, result.as_bytes(), hash_start, hash_len)
         {
             if verify {
                 println!("Hashes match!");
@@ -239,6 +239,5 @@ impl FileEncryptDecrypt {
         }
 
         Ok(result)
-        // Ok("result".to_string())
     }
 }
