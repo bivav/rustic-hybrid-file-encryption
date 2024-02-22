@@ -2,6 +2,7 @@ mod rsa_impl;
 mod aes_impl;
 
 pub use rsa_impl::*;
+pub use aes_impl::*;
 
 use std::cmp::min;
 use std::fs;
@@ -18,12 +19,12 @@ use ring::{aead, digest, pbkdf2};
 use rsa::rand_core::OsRng;
 use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
 
-pub struct Configs {
+pub struct FileIoOperation {
     pub command: String,
     pub file_path: String,
 }
 
-impl Configs {
+impl FileIoOperation {
     pub fn from_matches(matches: &clap::ArgMatches) -> Self {
         let file_path = matches.get_one::<String>("file").unwrap().to_string();
         Self {
@@ -42,14 +43,14 @@ impl Configs {
         Ok(Self { command, file_path })
     }
 
-    pub fn read_file(config: Configs) -> Result<Vec<u8>> {
+    pub fn read_file(config: FileIoOperation) -> Result<Vec<u8>> {
         let mut file = File::open(config.file_path)?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
         Ok(buffer)
     }
 
-    pub fn read_file_base64(config: Configs) -> Result<Vec<u8>> {
+    pub fn read_file_base64(config: FileIoOperation) -> Result<Vec<u8>> {
         let file_content = fs::read_to_string(config.file_path)?;
 
         let decoded_data = base64::engine::general_purpose::STANDARD
@@ -65,11 +66,11 @@ impl Configs {
         Ok(decoded_data)
     }
 
-    pub fn save_as_base64_encoded_file(data: Vec<u8>, filename: &str) -> Result<bool> {
+    pub fn save_as_base64_encoded_file(data: Vec<u8>, filename: &str) -> Result<()> {
         let mut file = File::create(filename)?;
         let encoded_data = base64::engine::general_purpose::STANDARD.encode(&data);
         file.write_all(encoded_data.as_bytes())?;
-        Ok(true)
+        Ok(())
     }
 
     pub fn save_file(data: String, filename: &str) -> Result<bool> {
@@ -99,9 +100,11 @@ impl FileEncryptDecrypt {
     pub fn encrypt<'a>(
         file_content: &'a mut Vec<u8>,
         password: String,
-        public_key: &'a RsaPublicKey,
-        mut os_rng: OsRng,
-    ) -> Result<([u8; 12], &'a mut Vec<u8>, [u8; 32], Vec<u8>)> {
+        // public_key: &'a RsaPublicKey,
+        // mut os_rng: OsRng,
+    ) -> Result<([u8; 12], &'a mut Vec<u8>, [u8; 32],
+                 // Vec<u8>
+    )> {
         let rng = SystemRandom::new(); // Random Number Generator
 
         // let mut encryption_key = [0u8; 32]; // Creating list of 256 bits of 0s (Encryption Key)
@@ -134,8 +137,8 @@ impl FileEncryptDecrypt {
             &encryption_key[..min(encryption_key.len(), 4)]
         );
 
-        let encrypt_symmetric_key =
-            public_key.encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)?;
+        // let encrypt_symmetric_key =
+        //     public_key.encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)?;
 
         let unbound_key = UnboundKey::new(&aead::AES_256_GCM, &encryption_key)
             .map_err(|e| anyhow!("Failed to create unbound key {}", e))?;
@@ -148,7 +151,9 @@ impl FileEncryptDecrypt {
 
         println!("Final encrypted data length: {}", file_content.len());
 
-        Ok((iv, file_content, salt, encrypt_symmetric_key))
+        Ok((iv, file_content, salt
+            // encrypt_symmetric_key
+        ))
     }
 
     pub fn decrypt(file_content: &mut Vec<u8>, key: &[u8]) -> Result<String> {

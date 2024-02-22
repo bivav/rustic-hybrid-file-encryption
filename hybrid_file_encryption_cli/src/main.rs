@@ -3,7 +3,7 @@ use std::io::stdin;
 use anyhow::{anyhow, Context, Result};
 use clap::{Arg, Command};
 
-use hybrid_file_encryption_lib::{Configs, FileEncryptDecrypt, rsa_implementation};
+use hybrid_file_encryption_lib::{FileIoOperation, FileEncryptDecrypt, rsa_implementation, aes_implementation};
 
 const APP_NAME: &str = "Hybrid File Encryption";
 const VERSION: &str = "0.1.0";
@@ -67,55 +67,58 @@ fn main() -> Result<()> {
 
     match matches.subcommand() {
         Some(("encrypt", sub_matches)) => {
-            let config = Configs::from_matches(sub_matches);
-            // println!("{:?}", config.file_path);
+            let config = FileIoOperation::from_matches(sub_matches);
 
-            let mut file_content_buffer = Configs::read_file(config)?;
-
-            // Hash value before encryption
-            let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
-            println!("Hash before encryption: {:?}", hex::encode(&before_encrypt_hash));
+            let mut file_content_buffer = FileIoOperation::read_file(config)?;
 
             println!("Enter a password to encrypt the file:");
             let mut password = String::new();
             stdin().read_line(&mut password).context("Input valid password")?;
             let password = password.trim().to_string();
+            
+            
+            let aes_temp = aes_implementation(password, &mut file_content_buffer);
+            
 
-            let (iv, cipher_text, salt, encrypted_symmetric_key) =
-                FileEncryptDecrypt::encrypt(&mut file_content_buffer, password, &public_key, rng)?;
-
-            let mut encrypted_data = Vec::new();
-
-            // pre pend len of all data
-            let symmetric_key_len_bytes = (encrypted_symmetric_key.len() as u32).to_be_bytes();
-            let hash_len_bytes = (before_encrypt_hash.len() as u32).to_be_bytes();
-            let salt_len_bytes = (salt.len() as u32).to_be_bytes();
-            let iv_len_bytes = (iv.len() as u32).to_be_bytes();
-
-            // prepend len of all of 16 bytes
-            encrypted_data.extend_from_slice(&symmetric_key_len_bytes); // 4 bytes
-            encrypted_data.extend_from_slice(&hash_len_bytes); // 4 bytes
-            encrypted_data.extend_from_slice(&salt_len_bytes); // 4 bytes
-            encrypted_data.extend_from_slice(&iv_len_bytes); // 4 bytes
-
-            // prepend all data
-            encrypted_data.extend_from_slice(&encrypted_symmetric_key);
-            encrypted_data.extend_from_slice(&before_encrypt_hash);
-            encrypted_data.extend_from_slice(&salt);
-            encrypted_data.extend_from_slice(&iv);
-            encrypted_data.extend_from_slice(&cipher_text);
-            println!("File content length after encrypting: {}", encrypted_data.len());
-
-            let after_encrypt_hash = FileEncryptDecrypt::get_hash(encrypted_data.as_slice());
-            println!("Hash after encryption: {:?}", hex::encode(&after_encrypt_hash));
-
-            let saved = Configs::save_as_base64_encoded_file(encrypted_data, "encrypted.txt")?;
-            if saved {
-                println!("File encrypted as encrypted.txt");
-            }
+            // // Hash value before encryption
+            // let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
+            // println!("Hash before encryption: {:?}", hex::encode(&before_encrypt_hash));
+            // 
+            // let (iv, cipher_text, salt, encrypted_symmetric_key) =
+            //     FileEncryptDecrypt::encrypt(&mut file_content_buffer, password, &public_key, rng)?;
+            // 
+            // let mut encrypted_data = Vec::new();
+            // 
+            // // prepend length of all data
+            // let symmetric_key_len_bytes = (encrypted_symmetric_key.len() as u32).to_be_bytes();
+            // let hash_len_bytes = (before_encrypt_hash.len() as u32).to_be_bytes();
+            // let salt_len_bytes = (salt.len() as u32).to_be_bytes();
+            // let iv_len_bytes = (iv.len() as u32).to_be_bytes();
+            // 
+            // // prepend len of all of 16 bytes
+            // encrypted_data.extend_from_slice(&symmetric_key_len_bytes); // 4 bytes
+            // encrypted_data.extend_from_slice(&hash_len_bytes); // 4 bytes
+            // encrypted_data.extend_from_slice(&salt_len_bytes); // 4 bytes
+            // encrypted_data.extend_from_slice(&iv_len_bytes); // 4 bytes
+            // 
+            // // prepend all data
+            // encrypted_data.extend_from_slice(&encrypted_symmetric_key);
+            // encrypted_data.extend_from_slice(&before_encrypt_hash);
+            // encrypted_data.extend_from_slice(&salt);
+            // encrypted_data.extend_from_slice(&iv);
+            // encrypted_data.extend_from_slice(&cipher_text);
+            // println!("File content length after encrypting: {}", encrypted_data.len());
+            // 
+            // let after_encrypt_hash = FileEncryptDecrypt::get_hash(encrypted_data.as_slice());
+            // println!("Hash after encryption: {:?}", hex::encode(&after_encrypt_hash));
+            // 
+            // let saved = FileIoOperation::save_as_base64_encoded_file(encrypted_data, "encrypted.txt")?;
+            // if saved {
+            //     println!("File encrypted as encrypted.txt");
+            // }
         }
         Some(("decrypt", sub_matches)) => {
-            let config = Configs::from_matches(sub_matches);
+            let config = FileIoOperation::from_matches(sub_matches);
             // println!("{:?}", config.file_path);
 
             // TODO: Think about how to handle the password and private key
@@ -125,7 +128,7 @@ fn main() -> Result<()> {
                 return Err(anyhow!("Invalid Password!"));
             }
 
-            let mut file_content_as_buffer = Configs::read_file_base64(config)?;
+            let mut file_content_as_buffer = FileIoOperation::read_file_base64(config)?;
             let before_decryption_hash = FileEncryptDecrypt::get_hash(file_content_as_buffer.as_slice());
             let decrypted_text =
                 FileEncryptDecrypt::decrypt(&mut file_content_as_buffer, password.trim().as_bytes())?;
@@ -135,7 +138,7 @@ fn main() -> Result<()> {
                 FileEncryptDecrypt::verify_hash(file_content_as_buffer.as_slice(), decrypted_text.as_bytes());
             if verify {
                 println!("Hashes match!");
-                let saved = Configs::save_file(decrypted_text, "decrypted.txt")?;
+                let saved = FileIoOperation::save_file(decrypted_text, "decrypted.txt")?;
                 if saved {
                     println!("File decrypted as decrypted.txt");
                 } else {
