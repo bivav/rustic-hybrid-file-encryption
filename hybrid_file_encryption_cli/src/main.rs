@@ -3,7 +3,7 @@ use std::io::stdin;
 use anyhow::{anyhow, Context, Result};
 use clap::{Arg, Command};
 
-use hybrid_file_encryption_lib::{FileIoOperation, FileEncryptDecrypt, rsa_implementation, aes_implementation};
+use hybrid_file_encryption_lib::{aes_implementation, FileEncryptDecrypt, FileIoOperation};
 
 const APP_NAME: &str = "Hybrid File Encryption";
 const VERSION: &str = "0.1.0";
@@ -75,32 +75,30 @@ fn main() -> Result<()> {
             let mut password = String::new();
             stdin().read_line(&mut password).context("Input valid password")?;
             let password = password.trim().to_string();
-            
-            
-            let aes_temp = aes_implementation(password, &mut file_content_buffer);
-            
+
+            aes_implementation(password, &mut file_content_buffer).context("AES encryption failed")?;
 
             // // Hash value before encryption
             // let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
             // println!("Hash before encryption: {:?}", hex::encode(&before_encrypt_hash));
-            // 
+            //
             // let (iv, cipher_text, salt, encrypted_symmetric_key) =
             //     FileEncryptDecrypt::encrypt(&mut file_content_buffer, password, &public_key, rng)?;
-            // 
+            //
             // let mut encrypted_data = Vec::new();
-            // 
+            //
             // // prepend length of all data
             // let symmetric_key_len_bytes = (encrypted_symmetric_key.len() as u32).to_be_bytes();
             // let hash_len_bytes = (before_encrypt_hash.len() as u32).to_be_bytes();
             // let salt_len_bytes = (salt.len() as u32).to_be_bytes();
             // let iv_len_bytes = (iv.len() as u32).to_be_bytes();
-            // 
+            //
             // // prepend len of all of 16 bytes
             // encrypted_data.extend_from_slice(&symmetric_key_len_bytes); // 4 bytes
             // encrypted_data.extend_from_slice(&hash_len_bytes); // 4 bytes
             // encrypted_data.extend_from_slice(&salt_len_bytes); // 4 bytes
             // encrypted_data.extend_from_slice(&iv_len_bytes); // 4 bytes
-            // 
+            //
             // // prepend all data
             // encrypted_data.extend_from_slice(&encrypted_symmetric_key);
             // encrypted_data.extend_from_slice(&before_encrypt_hash);
@@ -108,10 +106,10 @@ fn main() -> Result<()> {
             // encrypted_data.extend_from_slice(&iv);
             // encrypted_data.extend_from_slice(&cipher_text);
             // println!("File content length after encrypting: {}", encrypted_data.len());
-            // 
+            //
             // let after_encrypt_hash = FileEncryptDecrypt::get_hash(encrypted_data.as_slice());
             // println!("Hash after encryption: {:?}", hex::encode(&after_encrypt_hash));
-            // 
+            //
             // let saved = FileIoOperation::save_as_base64_encoded_file(encrypted_data, "encrypted.txt")?;
             // if saved {
             //     println!("File encrypted as encrypted.txt");

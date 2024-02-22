@@ -1,9 +1,3 @@
-mod rsa_impl;
-mod aes_impl;
-
-pub use rsa_impl::*;
-pub use aes_impl::*;
-
 use std::cmp::min;
 use std::fs;
 use std::fs::File;
@@ -18,6 +12,12 @@ use ring::rand::{SecureRandom, SystemRandom};
 use ring::{aead, digest, pbkdf2};
 use rsa::rand_core::OsRng;
 use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
+
+pub use aes_impl::*;
+pub use rsa_impl::*;
+
+mod aes_impl;
+mod rsa_impl;
 
 pub struct FileIoOperation {
     pub command: String,
@@ -56,10 +56,7 @@ impl FileIoOperation {
         let decoded_data = base64::engine::general_purpose::STANDARD
             .decode(&file_content)
             .unwrap_or_else(|e| {
-                println!(
-                    "Decoding Error: {:?}\nAre you sure it's the encrypted file?",
-                    e
-                );
+                println!("Decoding Error: {:?}\nAre you sure it's the encrypted file?", e);
                 exit(1);
             });
 
@@ -100,11 +97,10 @@ impl FileEncryptDecrypt {
     pub fn encrypt<'a>(
         file_content: &'a mut Vec<u8>,
         password: String,
-        // public_key: &'a RsaPublicKey,
-        // mut os_rng: OsRng,
-    ) -> Result<([u8; 12], &'a mut Vec<u8>, [u8; 32],
-                 // Vec<u8>
-    )> {
+        public_key: Option<&'a RsaPublicKey>,
+    ) -> Result<EncryptDecryptResult<'a>> {
+        let mut os_rng = OsRng;
+
         let rng = SystemRandom::new(); // Random Number Generator
 
         // let mut encryption_key = [0u8; 32]; // Creating list of 256 bits of 0s (Encryption Key)
@@ -137,8 +133,11 @@ impl FileEncryptDecrypt {
             &encryption_key[..min(encryption_key.len(), 4)]
         );
 
-        // let encrypt_symmetric_key =
-        //     public_key.encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)?;
+        let mut encrypt_symmetric_key = None;
+
+        if let Some(pub_key) = public_key {
+            encrypt_symmetric_key = Some(pub_key.encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)?);
+        }
 
         let unbound_key = UnboundKey::new(&aead::AES_256_GCM, &encryption_key)
             .map_err(|e| anyhow!("Failed to create unbound key {}", e))?;
@@ -151,16 +150,16 @@ impl FileEncryptDecrypt {
 
         println!("Final encrypted data length: {}", file_content.len());
 
-        Ok((iv, file_content, salt
-            // encrypt_symmetric_key
-        ))
+        Ok(EncryptDecryptResult {
+            iv,
+            cipher_text: file_content,
+            salt,
+            encrypted_symmetric_key: encrypt_symmetric_key,
+        })
     }
 
     pub fn decrypt(file_content: &mut Vec<u8>, key: &[u8]) -> Result<String> {
-        println!(
-            "File content length before decrypting: {}",
-            file_content.len()
-        );
+        println!("File content length before decrypting: {}", file_content.len());
 
         let salt = &file_content[32..64];
         let iv = &file_content[64..76];
