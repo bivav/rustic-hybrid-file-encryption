@@ -26,7 +26,7 @@ pub struct FileIoOperation {
 
 impl FileIoOperation {
     pub fn from_matches(matches: &clap::ArgMatches) -> Self {
-        let file_path = matches.get_one::<String>("file").unwrap().to_string();
+        let file_path = matches.get_one::<String>("file path").unwrap().to_string();
         Self {
             command: "command".to_string(),
             file_path,

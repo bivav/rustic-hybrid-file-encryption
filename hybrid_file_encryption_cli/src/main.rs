@@ -19,7 +19,7 @@ fn main() -> Result<()> {
         .author(AUTHOR)
         .subcommand(
             Command::new("encrypt").about("Encrypts a file").arg(
-                Arg::new("file")
+                Arg::new("file path")
                     .help("The file to encrypt")
                     .required(true)
                     .index(1),
@@ -27,7 +27,7 @@ fn main() -> Result<()> {
         )
         .subcommand(
             Command::new("decrypt").about("Decrypts a file").arg(
-                Arg::new("file")
+                Arg::new("file path")
                     .help("The file to decrypt")
                     .required(true)
                     .index(1),
