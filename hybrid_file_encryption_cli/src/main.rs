@@ -1,4 +1,5 @@
 use std::io::stdin;
+use std::process::exit;
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Arg, Command};
@@ -42,7 +43,7 @@ fn main() -> Result<()> {
                         .short('k')
                         .long("key")
                         .help("The private key file for RSA decryption")
-                        .index(2)
+                        .required(false),
                 ),
         )
         .arg_required_else_help(true)
@@ -50,7 +51,9 @@ fn main() -> Result<()> {
 
     match matches.subcommand() {
         Some(("encrypt", sub_matches)) => {
-            let config = FileIoOperation::from_matches(sub_matches);
+            println!("Sub matches {:?}", sub_matches);
+
+            let config = FileIoOperation::from_matches("encrypt", sub_matches);
             let input = get_input("Encryption")?;
 
             match input {
@@ -72,7 +75,7 @@ fn main() -> Result<()> {
                     let mut rng = OsRng;
                     let file_content_buffer = FileIoOperation::read_file(config)?;
 
-                    let (pri_key, pub_key) = rsa_implementation().context("RSA key generation failed")?;
+                    let (_, pub_key) = rsa_implementation().context("RSA key generation failed")?;
 
                     let encrypted_data = pub_key
                         .encrypt(&mut rng, Pkcs1v15Encrypt, &file_content_buffer)
@@ -84,7 +87,7 @@ fn main() -> Result<()> {
                     if let Ok(_) =
                         FileIoOperation::save_as_base64_encoded_file(encrypted_data, "rsa_encrypted.txt")
                     {
-                        println!("File encrypted and saved as encrypted.txt");
+                        println!("File encrypted and saved as rsa_encrypted.txt");
                     }
                 }
                 3 => {
@@ -97,15 +100,19 @@ fn main() -> Result<()> {
             }
         }
         Some(("decrypt", sub_matches)) => {
-            let config = FileIoOperation::from_matches(sub_matches);
+            let config = FileIoOperation::from_matches("decrypt", sub_matches);
 
             let input = get_input("Decryption")?;
 
             match input {
                 1 => {
-                    // TODO: Think about how to handle the password and private key
-
                     // Decrypt using AES
+
+                    println!(
+                        "Decrypting '{}' using AES using password method..",
+                        config.file_path
+                    );
+
                     let password = rpassword::prompt_password("Enter your password: ").unwrap();
                     if password.is_empty() {
                         return Err(anyhow!("Invalid Password!"));
@@ -116,13 +123,26 @@ fn main() -> Result<()> {
                     aes_decryption(&mut file_content_as_buffer, password).context("AES decryption failed")?;
                 }
                 2 => {
-                    // Generate RSA keys
-                    let private_key = rsa_implementation().context("RSA key generation failed")?.0;
-                    let file_content_buffer = FileIoOperation::read_file_base64(config)?;
+                    if config.key == "default" {
+                        eprintln!(
+                            "Error: Please provide a private key file for RSA decryption.\nUse the -k option."
+                        );
+                        exit(1);
+                    } else {
+                        println!(
+                            "Decrypting '{}' using RSA with private key '{}'",
+                            config.file_path, config.key
+                        );
+                        let private_key = FileIoOperation::read_pri_key(&config)?;
 
-                    let decrypted_data = private_key
-                        .decrypt(Pkcs1v15Encrypt, &file_content_buffer)
-                        .context("RSA decryption failed")?;
+                        let file_content_as_buffer = FileIoOperation::read_file_base64(config)?;
+
+                        let decrypted_data = private_key
+                            .decrypt(Pkcs1v15Encrypt, &file_content_as_buffer)
+                            .context("RSA decryption failed")?;
+
+                        println!("Decrypted Data: {:?}\n", String::from_utf8_lossy(&decrypted_data),);
+                    }
                 }
                 3 => {
                     // Decrypt using RSA and AES
@@ -149,6 +169,5 @@ fn get_input(method: &str) -> Result<u32> {
     stdin().read_line(&mut input).context("Input valid option")?;
     let input = input.trim().parse::<u32>().context("Input valid option")?;
 
-    println!("You chose: {}", input);
     Ok(input)
 }

@@ -7,11 +7,12 @@ use std::process::exit;
 
 use anyhow::{anyhow, Result};
 use base64::Engine;
-use ring::{aead, digest, pbkdf2};
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey};
 use ring::rand::{SecureRandom, SystemRandom};
-use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
+use ring::{aead, digest, pbkdf2};
+use rsa::pkcs1::DecodeRsaPrivateKey;
 use rsa::rand_core::OsRng;
+use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
 
 pub use aes_impl::*;
 pub use rsa_impl::*;
@@ -20,17 +21,30 @@ mod aes_impl;
 mod rsa_impl;
 
 pub struct FileIoOperation {
-    pub command: Option<String>,
+    pub key: String,
     pub file_path: String,
 }
 
 impl FileIoOperation {
-    pub fn from_matches(matches: &clap::ArgMatches) -> Self {
+    pub fn from_matches(command: &str, matches: &clap::ArgMatches) -> Self {
         let file_path = matches.get_one::<String>("file path").unwrap().to_string();
-        let command = matches.get_one::<String>("command").unwrap().to_string();
-        Self {
-            command: Option::from(command),
-            file_path,
+
+        if command == "encrypt" {
+            return Self {
+                key: "default".to_string(),
+                file_path,
+            };
+        } else {
+            let key = if let Some(key_path) = matches.get_one::<String>("key") {
+                key_path
+            } else {
+                "default"
+            };
+
+            Self {
+                key: key.to_string(),
+                file_path,
+            }
         }
     }
 
@@ -52,6 +66,14 @@ impl FileIoOperation {
             });
 
         Ok(decoded_data)
+    }
+
+    pub fn read_pri_key(config: &FileIoOperation) -> Result<RsaPrivateKey> {
+        let file_content = fs::read_to_string(&config.key)?;
+
+        let private_key = RsaPrivateKey::from_pkcs1_pem(&file_content)?;
+
+        Ok(private_key)
     }
 
     pub fn save_as_base64_encoded_file(data: Vec<u8>, filename: &str) -> Result<()> {
