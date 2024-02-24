@@ -2,8 +2,10 @@ use std::io::stdin;
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Arg, Command};
+use rsa::rand_core::OsRng;
+use rsa::Pkcs1v15Encrypt;
 
-use hybrid_file_encryption_lib::{aes_decryption, aes_encryption, FileIoOperation};
+use hybrid_file_encryption_lib::{aes_decryption, aes_encryption, rsa_implementation, FileIoOperation};
 
 const APP_NAME: &str = "Hybrid File Encryption";
 const VERSION: &str = "0.1.0";
@@ -26,12 +28,22 @@ fn main() -> Result<()> {
             ),
         )
         .subcommand(
-            Command::new("decrypt").about("Decrypts a file").arg(
-                Arg::new("file path")
-                    .help("The file to decrypt")
-                    .required(true)
-                    .index(1),
-            ),
+            Command::new("decrypt")
+                .about("Decrypts a file")
+                .arg(
+                    Arg::new("file path")
+                        .help("The file to decrypt")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    // Optional argument for the private key file
+                    Arg::new("key")
+                        .short('k')
+                        .long("key")
+                        .help("The private key file for RSA decryption")
+                        .index(2)
+                ),
         )
         .arg_required_else_help(true)
         .get_matches();
@@ -43,6 +55,7 @@ fn main() -> Result<()> {
 
             match input {
                 1 => {
+                    println!("\nEncrypting using AES..");
                     // Encrypt using AES
                     let mut file_content_buffer = FileIoOperation::read_file(config)?;
 
@@ -55,7 +68,24 @@ fn main() -> Result<()> {
                 }
                 2 => {
                     // Generate RSA keys
-                    unimplemented!("RSA encryption not implemented yet")
+                    println!("\nGenerating keys.. Please wait..");
+                    let mut rng = OsRng;
+                    let file_content_buffer = FileIoOperation::read_file(config)?;
+
+                    let (pri_key, pub_key) = rsa_implementation().context("RSA key generation failed")?;
+
+                    let encrypted_data = pub_key
+                        .encrypt(&mut rng, Pkcs1v15Encrypt, &file_content_buffer)
+                        .context("RSA encryption failed")?;
+
+                    println!("Length of encryption {:?}", &encrypted_data.len());
+
+                    // save the encrypted data to a file
+                    if let Ok(_) =
+                        FileIoOperation::save_as_base64_encoded_file(encrypted_data, "rsa_encrypted.txt")
+                    {
+                        println!("File encrypted and saved as encrypted.txt");
+                    }
                 }
                 3 => {
                     // Encrypt using RSA and AES
@@ -73,7 +103,6 @@ fn main() -> Result<()> {
 
             match input {
                 1 => {
-
                     // TODO: Think about how to handle the password and private key
 
                     // Decrypt using AES
@@ -88,7 +117,12 @@ fn main() -> Result<()> {
                 }
                 2 => {
                     // Generate RSA keys
-                    unimplemented!("RSA encryption not implemented yet")
+                    let private_key = rsa_implementation().context("RSA key generation failed")?.0;
+                    let file_content_buffer = FileIoOperation::read_file_base64(config)?;
+
+                    let decrypted_data = private_key
+                        .decrypt(Pkcs1v15Encrypt, &file_content_buffer)
+                        .context("RSA decryption failed")?;
                 }
                 3 => {
                     // Decrypt using RSA and AES

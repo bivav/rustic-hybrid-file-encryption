@@ -5,13 +5,13 @@ use std::io::{Read, Write};
 use std::num::NonZeroU32;
 use std::process::exit;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use base64::Engine;
+use ring::{aead, digest, pbkdf2};
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey};
 use ring::rand::{SecureRandom, SystemRandom};
-use ring::{aead, digest, pbkdf2};
-use rsa::rand_core::OsRng;
 use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
+use rsa::rand_core::OsRng;
 
 pub use aes_impl::*;
 pub use rsa_impl::*;
@@ -20,27 +20,18 @@ mod aes_impl;
 mod rsa_impl;
 
 pub struct FileIoOperation {
-    pub command: String,
+    pub command: Option<String>,
     pub file_path: String,
 }
 
 impl FileIoOperation {
     pub fn from_matches(matches: &clap::ArgMatches) -> Self {
         let file_path = matches.get_one::<String>("file path").unwrap().to_string();
+        let command = matches.get_one::<String>("command").unwrap().to_string();
         Self {
-            command: "command".to_string(),
+            command: Option::from(command),
             file_path,
         }
-    }
-    pub fn build(args: &[String]) -> Result<Self> {
-        if args.len() < 3 {
-            bail!("Not enough arguments!");
-        }
-
-        let command = args[1].clone();
-        let file_path = args[2].clone();
-
-        Ok(Self { command, file_path })
     }
 
     pub fn read_file(config: FileIoOperation) -> Result<Vec<u8>> {
@@ -104,7 +95,6 @@ impl FileEncryptDecrypt {
         password: String,
         public_key: Option<&'a RsaPublicKey>,
     ) -> Result<EncryptDecryptResult<'a>> {
-        
         // Used for encryption using public key
         let mut os_rng = OsRng;
 
