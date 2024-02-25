@@ -112,11 +112,11 @@ impl FileEncryptDecrypt {
         Ok(decrypted_hash == encrypted_hash)
     }
 
-    pub fn encrypt<'a>(
-        file_content: &'a mut Vec<u8>,
+    pub fn encrypt(
+        file_content: &mut Vec<u8>,
         password: String,
-        public_key: Option<&'a RsaPublicKey>,
-    ) -> Result<EncryptDecryptResult<'a>> {
+        public_key: Option<RsaPublicKey>,
+    ) -> Result<EncryptDecryptResult> {
         // Used for encryption using public key
         let mut os_rng = OsRng;
 
@@ -153,11 +153,14 @@ impl FileEncryptDecrypt {
             &encryption_key[..min(encryption_key.len(), 4)]
         );
 
-        let mut encrypt_symmetric_key = None;
+        let mut rsa_encrypted_symmetric_key = None;
 
         if let Some(pub_key) = public_key {
-            encrypt_symmetric_key = Some(pub_key.encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)?);
+            let encrypted_key = pub_key.encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)?;
+            rsa_encrypted_symmetric_key = Some(encrypted_key);
         }
+
+        println!("\nRSA encrypted symmetric key: {:?}\n", rsa_encrypted_symmetric_key);
 
         let unbound_key = UnboundKey::new(&aead::AES_256_GCM, &encryption_key)
             .map_err(|e| anyhow!("Failed to create unbound key {}", e))?;
@@ -174,7 +177,7 @@ impl FileEncryptDecrypt {
             iv,
             cipher_text: file_content,
             salt,
-            encrypted_symmetric_key: encrypt_symmetric_key,
+            rsa_encrypted_symmetric_key,
         })
     }
 

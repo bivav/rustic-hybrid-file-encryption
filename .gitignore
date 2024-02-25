@@ -20,9 +20,11 @@ key.txt
 decrypted.txt
 encrypted.txt
 rsa_encrypted.txt
+aes_rsa_encrypted.txt
 keys/
 
 */rsa_encrypted.txt
+*/aes_rsa_encrypted.txt
 */encrypted.txt
 */decrypted.txt
 */keys/

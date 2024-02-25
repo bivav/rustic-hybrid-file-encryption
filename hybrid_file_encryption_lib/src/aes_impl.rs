@@ -1,4 +1,6 @@
 use anyhow::Result;
+use ring::rsa::PublicKey;
+use rsa::RsaPublicKey;
 
 use crate::FileEncryptDecrypt;
 
@@ -6,21 +8,21 @@ pub struct EncryptDecryptResult<'a> {
     pub(crate) iv: [u8; 12],
     pub(crate) cipher_text: &'a mut Vec<u8>,
     pub(crate) salt: [u8; 32],
-    pub(crate) encrypted_symmetric_key: Option<Vec<u8>>,
+    pub(crate) rsa_encrypted_symmetric_key: Option<Vec<u8>>,
 }
 
-pub fn aes_encryption(password: String, file_content_buffer: &mut Vec<u8>) -> Result<Vec<u8>> {
+pub fn aes_encryption(password: String, file_content_buffer: &mut Vec<u8>, public_key: Option<RsaPublicKey>) -> Result<Vec<u8>> {
     // Hash value before encryption
     let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
     println!("Hash before encryption: {:?}", hex::encode(&before_encrypt_hash));
 
-    let result: EncryptDecryptResult = FileEncryptDecrypt::encrypt(file_content_buffer, password, None)?;
-    let encrypted_symmetric_key = result.encrypted_symmetric_key.unwrap_or_default();
+    let result: EncryptDecryptResult = FileEncryptDecrypt::encrypt(file_content_buffer, password, public_key)?;
+    let rsa_encrypted_symmetric_key = result.rsa_encrypted_symmetric_key.unwrap_or_default();
 
     let mut encrypted_data = Vec::new();
 
     // Length of all data as bytes
-    let symmetric_key_len_bytes = (encrypted_symmetric_key.len() as u32).to_be_bytes();
+    let symmetric_key_len_bytes = (rsa_encrypted_symmetric_key.len() as u32).to_be_bytes();
     let hash_len_bytes = (before_encrypt_hash.len() as u32).to_be_bytes();
     let salt_len_bytes = (result.salt.len() as u32).to_be_bytes();
     let iv_len_bytes = (result.iv.len() as u32).to_be_bytes();
@@ -34,7 +36,7 @@ pub fn aes_encryption(password: String, file_content_buffer: &mut Vec<u8>) -> Re
     encrypted_data.extend_from_slice(&iv_len_bytes); // 4 bytes of iv
 
     // Concatenate the data in the same order that was used to create the lengths above
-    encrypted_data.extend_from_slice(&encrypted_symmetric_key);
+    encrypted_data.extend_from_slice(&rsa_encrypted_symmetric_key); // TODO: Remove this and use RSA to encrypt the symmetric key
     encrypted_data.extend_from_slice(&before_encrypt_hash);
     encrypted_data.extend_from_slice(&result.salt);
     encrypted_data.extend_from_slice(&result.iv);
