@@ -76,7 +76,7 @@ impl FileIoOperation {
         Ok(private_key)
     }
 
-    pub fn save_as_base64_encoded_file(data: Vec<u8>, filename: &str) -> Result<()> {
+    pub fn save_as_base64_encoded(data: Vec<u8>, filename: &str) -> Result<()> {
         let mut file = File::create(filename)?;
         let encoded_data = base64::engine::general_purpose::STANDARD.encode(&data);
         file.write_all(encoded_data.as_bytes())?;

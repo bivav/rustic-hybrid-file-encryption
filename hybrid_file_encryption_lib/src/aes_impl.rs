@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{FileEncryptDecrypt, FileIoOperation};
+use crate::FileEncryptDecrypt;
 
 pub struct EncryptDecryptResult<'a> {
     pub(crate) iv: [u8; 12],
@@ -9,7 +9,7 @@ pub struct EncryptDecryptResult<'a> {
     pub(crate) encrypted_symmetric_key: Option<Vec<u8>>,
 }
 
-pub fn aes_encryption(password: String, file_content_buffer: &mut Vec<u8>) -> Result<()> {
+pub fn aes_encryption(password: String, file_content_buffer: &mut Vec<u8>) -> Result<Vec<u8>> {
     // Hash value before encryption
     let before_encrypt_hash = FileEncryptDecrypt::get_hash(file_content_buffer.as_slice());
     println!("Hash before encryption: {:?}", hex::encode(&before_encrypt_hash));
@@ -44,15 +44,11 @@ pub fn aes_encryption(password: String, file_content_buffer: &mut Vec<u8>) -> Re
     let after_encrypt_hash = FileEncryptDecrypt::get_hash(encrypted_data.as_slice());
     println!("Hash after encryption: {:?}", hex::encode(&after_encrypt_hash));
 
-    if let Ok(_) = FileIoOperation::save_as_base64_encoded_file(encrypted_data, "encrypted.txt") {
-        println!("File encrypted and saved as encrypted.txt");
-    }
-
-    Ok(())
+    Ok(encrypted_data)
 }
 
 pub fn aes_decryption(file_content_buffer: &mut Vec<u8>, password: String) -> Result<()> {
-    // Hash value before decryption. 
+    // Hash value before decryption.
     // It should match with the hash value after encryption of the file
     let before_decryption_hash = FileEncryptDecrypt::get_hash(&file_content_buffer);
     println!("Encrypted Hash: {:?}", hex::encode(before_decryption_hash));
