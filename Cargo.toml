@@ -1,4 +1,7 @@
 [workspace]
-members = ["hybrid_file_encryption_cli", "hybrid_file_encryption_lib"]
+members = [
+    "hybrid_file_encryption_cli",
+    "hybrid_file_encryption_lib"
+]
 
 resolver = "2"
