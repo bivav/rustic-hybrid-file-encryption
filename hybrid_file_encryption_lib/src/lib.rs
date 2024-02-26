@@ -131,12 +131,9 @@ impl FileEncryptDecrypt {
 
         let nonce = Nonce::assume_unique_for_key(iv);
 
-        // let mut password_as_bytes = None;
-
         let password_as_bytes = match password {
             Some(pass_key) => {
                 println!("Password provided. Generating encryption key..");
-                println!("Password: {:?}", pass_key);
                 pass_key.into_bytes()
             }
             None => {
@@ -147,12 +144,7 @@ impl FileEncryptDecrypt {
             }
         };
 
-        // let mut password_slice: &[u8] = &[];
-
-        // if let Some(ref vec) = password_as_bytes {
-        //     password_slice = vec.as_slice();
-        // }
-
+        // Derive encryption key from password
         let mut encryption_key = [0u8; digest::SHA256_OUTPUT_LEN];
 
         println!("Generated salt snippet: {:?}", &salt[..6]);
@@ -171,12 +163,12 @@ impl FileEncryptDecrypt {
             &encryption_key[..min(encryption_key.len(), 4)]
         );
 
-        let mut rsa_encrypted_symmetric_key = None;
-
-        if let Some(pub_key) = public_key {
-            let encrypted_key = pub_key.encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)?;
-            rsa_encrypted_symmetric_key = Some(encrypted_key);
-        }
+        // Encrypt the symmetric key using RSA public key
+        let rsa_encrypted_symmetric_key = public_key.and_then(|pub_key| {
+            pub_key
+                .encrypt(&mut os_rng, Pkcs1v15Encrypt, &encryption_key)
+                .ok()
+        });
 
         println!(
             "\nRSA encrypted symmetric key: {:?}\n",
@@ -202,7 +194,11 @@ impl FileEncryptDecrypt {
         })
     }
 
-    pub fn decrypt(file_content: &mut Vec<u8>, user_password: &[u8]) -> Result<String> {
+    pub fn decrypt(
+        file_content: &mut Vec<u8>,
+        user_password: Option<&[u8]>,
+        private_key: Option<RsaPrivateKey>,
+    ) -> Result<String> {
         println!("File content length before decrypting: {}", file_content.len());
 
         // First 4 bytes of symmetric key, then 4 bytes of hash, then 4 bytes of salt, then 4 bytes of iv then the cipher text
@@ -217,30 +213,82 @@ impl FileEncryptDecrypt {
         let iv_start = salt_start + salt_len;
         let cipher_text_start = iv_start + iv_len;
 
+        let rsa_encrypted_key = &file_content[rsa_encrypted_key_start..hash_start];
+
         let salt = &file_content[salt_start..iv_start];
         let iv = &file_content[iv_start..cipher_text_start];
 
         let mut cipher_data = &mut file_content[cipher_text_start..].to_vec();
 
-        println!("Extracted Salt snippet: {:?}", &salt[..6]);
-        println!("Extracted IV snipped: {:?}", &iv);
+        // println!("Extracted Salt snippet: {:?}", &salt[..6]);
+        // println!("Extracted IV snipped: {:?}", &iv);
+        //
+        // let mut encryption_key = [0u8; digest::SHA256_OUTPUT_LEN];
+        //
+        // let non_zero_iterations = NonZeroU32::new(100_000).unwrap();
+        //
+        // // Check if password is provided, if not use the RSA encrypted key
+        // let pass_key;
+        // let decrypted_key;
+        // match user_password {
+        //     Some(password) => pass_key = password,
+        //     None => match private_key {
+        //         Some(private_key) => {
+        //             decrypted_key = private_key
+        //                 .decrypt(Pkcs1v15Encrypt, rsa_encrypted_key)
+        //                 .ok()
+        //                 .unwrap_or_else(|| vec![]);
+        //             pass_key = decrypted_key.as_slice();
+        //         }
+        //         None => return Err(anyhow!("No password or private key provided")),
+        //     },
+        // };
+        //
+        // println!("Derived key snippet: {:?}", &pass_key[..min(pass_key.len(), 4)]);
+        //
+        // pbkdf2::derive(
+        //     pbkdf2::PBKDF2_HMAC_SHA256,
+        //     non_zero_iterations,
+        //     &salt,
+        //     &pass_key,
+        //     &mut encryption_key,
+        // );
+        //
+        // println!(
+        //     "Encryption key snippet: {:?}",
+        //     &encryption_key[..min(encryption_key.len(), 4)]
+        // );
 
         let mut encryption_key = [0u8; digest::SHA256_OUTPUT_LEN];
-
         let non_zero_iterations = NonZeroU32::new(100_000).unwrap();
 
-        pbkdf2::derive(
-            pbkdf2::PBKDF2_HMAC_SHA256,
-            non_zero_iterations,
-            &salt,
-            &user_password,
-            &mut encryption_key,
-        );
+        match user_password {
+            Some(password) => {
+                // When user password is provided we can derive the encryption key using PBKDF2.
+                pbkdf2::derive(
+                    pbkdf2::PBKDF2_HMAC_SHA256,
+                    non_zero_iterations,
+                    salt,
+                    password,
+                    &mut encryption_key,
+                );
+            }
+            None => {
+                // For hybrid method decrypt the key using RSA.
+                if let Some(private_key) = private_key {
+                    let rsa_decrypted_key = private_key
+                        .decrypt(Pkcs1v15Encrypt, rsa_encrypted_key)
+                        .map_err(|e| anyhow!("RSA decryption failed: {:?}", e))?;
 
-        println!(
-            "Encryption key snippet: {:?}",
-            &encryption_key[..min(encryption_key.len(), 4)]
-        );
+                    // Directly copies the decrypted key from `rsa_decrypted_key`
+                    for (i, &byte) in rsa_decrypted_key.iter().enumerate().take(encryption_key.len()) {
+                        encryption_key[i] = byte;
+                    }
+                } else {
+                    return Err(anyhow!("No private key provided for hybrid decryption."));
+                }
+            }
+        };
 
         let nonce = Nonce::assume_unique_for_key(iv.try_into()?);
 
@@ -248,9 +296,7 @@ impl FileEncryptDecrypt {
             .map_err(|e| anyhow!("Failed to create unbound key: {:?}", e))?;
 
         let aead_key = LessSafeKey::new(unbound_key);
-
         println!("Data to decrypt length: {}", &cipher_data.len());
-        println!("Data to decrypt snippet: {:?}", &cipher_data);
 
         let decrypted_data = aead_key
             .open_in_place(nonce, Aad::empty(), &mut cipher_data)

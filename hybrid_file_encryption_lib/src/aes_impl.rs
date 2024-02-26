@@ -1,5 +1,5 @@
-use anyhow::Result;
-use rsa::RsaPublicKey;
+use anyhow::{Context, Result};
+use rsa::{RsaPrivateKey, RsaPublicKey};
 
 use crate::FileEncryptDecrypt;
 
@@ -53,13 +53,18 @@ pub fn aes_encryption(
     Ok(encrypted_data)
 }
 
-pub fn aes_decryption(file_content_buffer: &mut Vec<u8>, password: String) -> Result<()> {
+pub fn aes_decryption(
+    file_content_buffer: &mut Vec<u8>,
+    password: Option<&[u8]>,
+    private_key: Option<RsaPrivateKey>,
+) -> Result<()> {
     // Hash value before decryption.
     // It should match with the hash value after encryption of the file
     let before_decryption_hash = FileEncryptDecrypt::get_hash(&file_content_buffer);
     println!("Encrypted Hash: {:?}", hex::encode(before_decryption_hash));
 
-    let decrypted_text = FileEncryptDecrypt::decrypt(file_content_buffer, password.trim().as_bytes())?;
+    let decrypted_text = FileEncryptDecrypt::decrypt(file_content_buffer, password, private_key)
+        .context("AES decryption failed in decrypt process.")?;
 
     println!("Decrypted text: {:?}", &decrypted_text);
 

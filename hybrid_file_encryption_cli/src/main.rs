@@ -51,8 +51,6 @@ fn main() -> Result<()> {
 
     match matches.subcommand() {
         Some(("encrypt", sub_matches)) => {
-            println!("Sub matches {:?}", sub_matches);
-
             let config = FileIoOperation::from_matches("encrypt", sub_matches);
             let input = get_input("Encryption")?;
 
@@ -76,7 +74,7 @@ fn main() -> Result<()> {
                 }
                 2 => {
                     // Generate RSA keys
-                    println!("\nGenerating keys.. Please wait..");
+                    println!("\nEncrypting using RSA..");
                     let mut rng = OsRng;
                     let file_content_buffer = FileIoOperation::read_file(config)?;
 
@@ -99,11 +97,6 @@ fn main() -> Result<()> {
                     // Encrypt using AES and then RSA
                     println!("Encrypting using AES and then RSA..");
                     let mut file_content_buffer = FileIoOperation::read_file(config)?;
-
-                    // println!("Enter a password to encrypt the file:");
-                    // let mut password = String::new();
-                    // stdin().read_line(&mut password).context("Input valid password")?;
-                    // let password = password.trim().to_string();
 
                     let (_, pub_key) = rsa_implementation().context("RSA key generation failed")?;
 
@@ -131,7 +124,6 @@ fn main() -> Result<()> {
             match input {
                 1 => {
                     // Decrypt using AES
-
                     println!(
                         "Decrypting '{}' using AES using password method..",
                         config.file_path
@@ -144,7 +136,12 @@ fn main() -> Result<()> {
 
                     let mut file_content_as_buffer = FileIoOperation::read_file_base64(config)?;
 
-                    aes_decryption(&mut file_content_as_buffer, password).context("AES decryption failed")?;
+                    aes_decryption(
+                        &mut file_content_as_buffer,
+                        Option::from(password.trim().as_bytes()),
+                        None,
+                    )
+                    .context("AES decryption failed")?;
                 }
                 2 => {
                     if config.key == "default" {
@@ -170,7 +167,25 @@ fn main() -> Result<()> {
                 }
                 3 => {
                     // Decrypt using RSA and AES
-                    unimplemented!("Hybrid encryption not implemented yet")
+
+                    if config.key == "default" {
+                        eprintln!(
+                            "Error: Please provide a private key file for RSA decryption.\nUse the -k option."
+                        );
+                        exit(1);
+                    } else {
+                        println!(
+                            "Decrypting '{}' using RSA with private key '{}'",
+                            config.file_path, config.key
+                        );
+
+                        let private_key = FileIoOperation::read_pri_key(&config)?;
+
+                        let mut file_content_as_buffer = FileIoOperation::read_file_base64(config)?;
+
+                        aes_decryption(&mut file_content_as_buffer, None, Option::from(private_key))
+                            .context("AES decryption failed")?;
+                    }
                 }
                 _ => {
                     return Err(anyhow!("Invalid option"));
