@@ -4,10 +4,10 @@ use rsa::{RsaPrivateKey, RsaPublicKey};
 use crate::FileEncryptDecrypt;
 
 pub struct EncryptDecryptResult<'a> {
-    pub(crate) iv: [u8; 12],
-    pub(crate) cipher_text: &'a mut Vec<u8>,
-    pub(crate) salt: [u8; 32],
-    pub(crate) rsa_encrypted_symmetric_key: Option<Vec<u8>>,
+    pub iv: [u8; 12],
+    pub cipher_text: &'a mut Vec<u8>,
+    pub salt: [u8; 32],
+    pub rsa_encrypted_symmetric_key: Option<Vec<u8>>,
 }
 
 pub fn aes_encryption(

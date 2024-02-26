@@ -14,11 +14,11 @@ use rsa::pkcs1::DecodeRsaPrivateKey;
 use rsa::rand_core::OsRng;
 use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
 
-pub use aes_impl::*;
-pub use rsa_impl::*;
+pub use hfe_aes::*;
+pub use hfe_rsa::*;
 
-mod aes_impl;
-mod rsa_impl;
+pub mod hfe_aes;
+pub mod hfe_rsa;
 
 pub struct FileIoOperation {
     pub key: String,
@@ -220,44 +220,8 @@ impl FileEncryptDecrypt {
 
         let mut cipher_data = &mut file_content[cipher_text_start..].to_vec();
 
-        // println!("Extracted Salt snippet: {:?}", &salt[..6]);
-        // println!("Extracted IV snipped: {:?}", &iv);
-        //
-        // let mut encryption_key = [0u8; digest::SHA256_OUTPUT_LEN];
-        //
-        // let non_zero_iterations = NonZeroU32::new(100_000).unwrap();
-        //
-        // // Check if password is provided, if not use the RSA encrypted key
-        // let pass_key;
-        // let decrypted_key;
-        // match user_password {
-        //     Some(password) => pass_key = password,
-        //     None => match private_key {
-        //         Some(private_key) => {
-        //             decrypted_key = private_key
-        //                 .decrypt(Pkcs1v15Encrypt, rsa_encrypted_key)
-        //                 .ok()
-        //                 .unwrap_or_else(|| vec![]);
-        //             pass_key = decrypted_key.as_slice();
-        //         }
-        //         None => return Err(anyhow!("No password or private key provided")),
-        //     },
-        // };
-        //
-        // println!("Derived key snippet: {:?}", &pass_key[..min(pass_key.len(), 4)]);
-        //
-        // pbkdf2::derive(
-        //     pbkdf2::PBKDF2_HMAC_SHA256,
-        //     non_zero_iterations,
-        //     &salt,
-        //     &pass_key,
-        //     &mut encryption_key,
-        // );
-        //
-        // println!(
-        //     "Encryption key snippet: {:?}",
-        //     &encryption_key[..min(encryption_key.len(), 4)]
-        // );
+        println!("Extracted Salt snippet: {:?}", &salt[..6]);
+        println!("Extracted IV snipped: {:?}", &iv);
 
         let mut encryption_key = [0u8; digest::SHA256_OUTPUT_LEN];
         let non_zero_iterations = NonZeroU32::new(100_000).unwrap();
@@ -289,6 +253,11 @@ impl FileEncryptDecrypt {
                 }
             }
         };
+
+        println!(
+            "Encryption key snippet: {:?}",
+            &encryption_key[..min(encryption_key.len(), 4)]
+        );
 
         let nonce = Nonce::assume_unique_for_key(iv.try_into()?);
 
