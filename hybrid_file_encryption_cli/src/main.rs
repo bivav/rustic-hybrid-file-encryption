@@ -98,23 +98,18 @@ fn main() -> Result<()> {
                 3 => {
                     // Encrypt using AES and then RSA
                     println!("Encrypting using AES and then RSA..");
-                    let mut rng = OsRng;
                     let mut file_content_buffer = FileIoOperation::read_file(config)?;
 
                     println!("Enter a password to encrypt the file:");
                     let mut password = String::new();
                     stdin().read_line(&mut password).context("Input valid password")?;
                     let password = password.trim().to_string();
+                    
                     let (_, pub_key) = rsa_implementation().context("RSA key generation failed")?;
 
-                    let encrypted =
+                    let encrypted_data =
                         aes_encryption(password, &mut file_content_buffer, Option::from(pub_key.clone()))
                             .context("AES encryption failed")?;
-
-                    // Encrypt the AES encrypted data using RSA
-                    let encrypted_data = pub_key
-                        .encrypt(&mut rng, Pkcs1v15Encrypt, &encrypted)
-                        .context("RSA encryption failed")?;
 
                     // save the encrypted data to a file
                     if let Ok(_) =

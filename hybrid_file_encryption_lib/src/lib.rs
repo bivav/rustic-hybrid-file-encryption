@@ -160,7 +160,10 @@ impl FileEncryptDecrypt {
             rsa_encrypted_symmetric_key = Some(encrypted_key);
         }
 
-        println!("\nRSA encrypted symmetric key: {:?}\n", rsa_encrypted_symmetric_key);
+        println!(
+            "\nRSA encrypted symmetric key: {:?}\n",
+            rsa_encrypted_symmetric_key
+        );
 
         let unbound_key = UnboundKey::new(&aead::AES_256_GCM, &encryption_key)
             .map_err(|e| anyhow!("Failed to create unbound key {}", e))?;
@@ -185,13 +188,13 @@ impl FileEncryptDecrypt {
         println!("File content length before decrypting: {}", file_content.len());
 
         // First 4 bytes of symmetric key, then 4 bytes of hash, then 4 bytes of salt, then 4 bytes of iv then the cipher text
-        let symmetric_key_len = u32::from_be_bytes(file_content[..4].try_into()?) as usize;
+        let rsa_encrypted_key_len = u32::from_be_bytes(file_content[..4].try_into()?) as usize;
         let hash_len = u32::from_be_bytes(file_content[4..8].try_into()?) as usize;
         let salt_len = u32::from_be_bytes(file_content[8..12].try_into()?) as usize;
         let iv_len = u32::from_be_bytes(file_content[12..16].try_into()?) as usize;
 
-        let symmetric_key_start = 16;
-        let hash_start = symmetric_key_start + symmetric_key_len;
+        let rsa_encrypted_key_start = 16;
+        let hash_start = rsa_encrypted_key_start + rsa_encrypted_key_len;
         let salt_start = hash_start + hash_len;
         let iv_start = salt_start + salt_len;
         let cipher_text_start = iv_start + iv_len;

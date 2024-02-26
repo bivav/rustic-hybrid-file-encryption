@@ -37,21 +37,23 @@ pub fn rsa_implementation() -> Result<(RsaPrivateKey, RsaPublicKey)> {
         && Path::new("keys/private_key.pem").exists()
         && Path::new("keys/public_key.pem").exists()
     {
+        println!("Keys already exist. Loading keys..");
         let private_key_pem = fs::read_to_string("keys/private_key.pem")?;
         // let public_key_pem = fs::read_to_string("keys/public_key.pem")?;
 
         private_key = RsaPrivateKey::from_pkcs1_pem(&private_key_pem)?;
         public_key = RsaPublicKey::from(&private_key);
 
-        // public_key = RsaPublicKey::from_pkcs1_pem(&public_key_pem)?;
     } else {
+        println!("Keys don't exist. Generating keys.. Please wait..");
+
         private_key = RsaPrivateKey::new(&mut rng, bits)?;
         public_key = RsaPublicKey::from(&private_key);
 
         let private_key_pem = private_key.to_pkcs1_pem(LineEnding::LF)?;
         let public_key_pem = public_key.to_pkcs1_pem(LineEnding::default())?;
 
-        fs::create_dir_all("keys").context("Couldn't create directory: ")?;
+        fs::create_dir_all("keys").context("Couldn't create directory.")?;
 
         let mut private_file = File::create("keys/private_key.pem")?;
         private_file.write_all(&private_key_pem.as_bytes())?;
