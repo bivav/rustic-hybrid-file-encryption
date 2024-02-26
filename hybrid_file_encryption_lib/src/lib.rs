@@ -114,7 +114,7 @@ impl FileEncryptDecrypt {
 
     pub fn encrypt(
         file_content: &mut Vec<u8>,
-        password: String,
+        password: Option<String>,
         public_key: Option<RsaPublicKey>,
     ) -> Result<EncryptDecryptResult> {
         // Used for encryption using public key
@@ -123,9 +123,6 @@ impl FileEncryptDecrypt {
         // Used for generating random values for AES encryption
         let rng = SystemRandom::new();
 
-        // let mut encryption_key = [0u8; 32]; // Creating list of 256 bits of 0s (Encryption Key)
-        // rng.fill(&mut encryption_key).unwrap(); // Generating Encryption key
-
         let mut salt = [0u8; 32]; // Creating list of 256 bits of 0s (Salt)
         rng.fill(&mut salt).unwrap(); // Generating salt
 
@@ -133,7 +130,28 @@ impl FileEncryptDecrypt {
         rng.fill(&mut iv).unwrap(); // Generating unique IV
 
         let nonce = Nonce::assume_unique_for_key(iv);
-        let password_as_bytes = password.into_bytes();
+
+        // let mut password_as_bytes = None;
+
+        let password_as_bytes = match password {
+            Some(pass_key) => {
+                println!("Password provided. Generating encryption key..");
+                println!("Password: {:?}", pass_key);
+                pass_key.into_bytes()
+            }
+            None => {
+                println!("No password required. Generating encryption key..");
+                let mut encryption_key = [0u8; 32]; // Creating list of 256 bits of 0s (Encryption Key)
+                rng.fill(&mut encryption_key).unwrap(); // Generating Encryption key
+                encryption_key.to_vec()
+            }
+        };
+
+        // let mut password_slice: &[u8] = &[];
+
+        // if let Some(ref vec) = password_as_bytes {
+        //     password_slice = vec.as_slice();
+        // }
 
         let mut encryption_key = [0u8; digest::SHA256_OUTPUT_LEN];
 

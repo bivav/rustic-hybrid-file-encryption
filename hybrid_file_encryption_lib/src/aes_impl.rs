@@ -11,8 +11,8 @@ pub struct EncryptDecryptResult<'a> {
 }
 
 pub fn aes_encryption(
-    password: String,
     file_content_buffer: &mut Vec<u8>,
+    password: Option<String>,
     public_key: Option<RsaPublicKey>,
 ) -> Result<Vec<u8>> {
     // Hash value before encryption

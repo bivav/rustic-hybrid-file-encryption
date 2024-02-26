@@ -67,7 +67,7 @@ fn main() -> Result<()> {
                     stdin().read_line(&mut password).context("Input valid password")?;
                     let password = password.trim().to_string();
 
-                    let encrypted = aes_encryption(password, &mut file_content_buffer, None)
+                    let encrypted = aes_encryption(&mut file_content_buffer, Option::from(password), None)
                         .context("AES encryption failed")?;
 
                     if let Ok(_) = FileIoOperation::save_as_base64_encoded(encrypted, "encrypted.txt") {
@@ -100,15 +100,15 @@ fn main() -> Result<()> {
                     println!("Encrypting using AES and then RSA..");
                     let mut file_content_buffer = FileIoOperation::read_file(config)?;
 
-                    println!("Enter a password to encrypt the file:");
-                    let mut password = String::new();
-                    stdin().read_line(&mut password).context("Input valid password")?;
-                    let password = password.trim().to_string();
-                    
+                    // println!("Enter a password to encrypt the file:");
+                    // let mut password = String::new();
+                    // stdin().read_line(&mut password).context("Input valid password")?;
+                    // let password = password.trim().to_string();
+
                     let (_, pub_key) = rsa_implementation().context("RSA key generation failed")?;
 
                     let encrypted_data =
-                        aes_encryption(password, &mut file_content_buffer, Option::from(pub_key.clone()))
+                        aes_encryption(&mut file_content_buffer, None, Option::from(pub_key.clone()))
                             .context("AES encryption failed")?;
 
                     // save the encrypted data to a file
